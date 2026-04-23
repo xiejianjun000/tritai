@@ -1,0 +1,74 @@
+# Python相关
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# 日志文件
+logs/
+*.log
+*.log.*
+
+# 输出文件
+output/
+*.output
+
+# 数据文件
+data/upload/
+data/测试数据/
+
+# 配置文件
+config/config.yaml
+!config/config_template.yaml
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE相关
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker相关
+*.dockerignore
+docker-compose.override.yml
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# 操作系统相关
+.DS_Store
+Thumbs.db
+
+# 测试文件
+test-results/
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# 文档生成
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 缓存文件
+.cache/
+*.pyc
+*.pyo
+*.pyd
