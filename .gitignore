@@ -72,3 +72,5 @@ dist/
 *.pyc
 *.pyo
 *.pyd
+# Node.js
+node_modules/
