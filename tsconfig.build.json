@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "declaration": false,
+    "strict": false,
+    "noImplicitAny": false
+  },
+  "include": ["src/**/*.ts", "DeterminismSystem.ts", "MemorySystem.ts", "SkillSystem.ts", "PersonalitySystem.ts", "*.ts"],
+  "exclude": ["node_modules", "dist", "*.test.ts"]
+}
