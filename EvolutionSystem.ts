@@ -587,20 +587,20 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     }
 
     // 按优先级排序
-    opportunities.sort((a, b) =&gt; b.priority - a.priority);
+    opportunities.sort((a, b) => b.priority - a.priority);
 
     // 生成推荐
     const topOpportunities = opportunities.slice(0, 3);
-    if (topOpportunities.length &gt; 0) {
+    if (topOpportunities.length > 0) {
       recommendations.push('建议优先实施以下进化:');
-      topOpportunities.forEach((opp, index) =&gt; {
+      topOpportunities.forEach((opp, index) => {
         recommendations.push(`${index + 1}. ${opp.description} - 预期收益: ${opp.expectedGain}`);
       });
     }
 
     // 计算综合分数
-    const score = opportunities.length &gt; 0
-      ? opportunities.reduce((sum, opp) =&gt; sum + opp.expectedGain, 0) / opportunities.length
+    const score = opportunities.length > 0
+      ? opportunities.reduce((sum, opp) => sum + opp.expectedGain, 0) / opportunities.length
       : 0;
 
     return {
@@ -685,7 +685,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     const tasks: EvolutionTask[] = [];
 
     // 根据触发类型创建进化任务
-    if (evaluation.opportunities.length &gt; 0) {
+    if (evaluation.opportunities.length > 0) {
       // 为最高优先级的进化机会创建任务
       const topOpportunity = evaluation.opportunities[0];
       

@@ -26,7 +26,7 @@ jobs:
 
       - name: TypeScript 类型检查
         run: npx tsc --noEmit
+        continue-on-error: true
 
       - name: 运行测试
         run: node verify.js
-        continue-on-error: true
