@@ -6,7 +6,7 @@
  * @version 1.0.0
  */
 
-import { IStorageAdapter, Memory, IVectorStoreAdapter, RetrieveOptions } from '../../../core/interfaces/IMemorySystem';
+import { IStorageAdapter, Memory, IVectorStoreAdapter, RetrieveOptions } from './core/interfaces/IMemorySystem';
 
 /**
  * Qdrant客户端包装（简化实现）

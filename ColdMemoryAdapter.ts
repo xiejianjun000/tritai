@@ -11,7 +11,7 @@ import path from 'path';
 import { createGzip, createGunzip } from 'zlib';
 import { promisify } from 'util';
 import { pipeline } from 'stream/promises';
-import { IStorageAdapter, Memory, RetrieveOptions } from '../../../core/interfaces/IMemorySystem';
+import { IStorageAdapter, Memory, RetrieveOptions } from './core/interfaces/IMemorySystem';
 
 /**
  * 冷记忆适配器配置

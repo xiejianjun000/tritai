@@ -18,12 +18,12 @@ import {
   MemoryContent,
   MemorySystemEvent,
   IStorageAdapter
-} from '../../core/interfaces/IMemorySystem';
+} from './core/interfaces/IMemorySystem';
 
-import { HotMemoryAdapter } from './adapters/HotMemoryAdapter';
-import { WarmMemoryAdapter } from './adapters/WarmMemoryAdapter';
-import { ColdMemoryAdapter } from './adapters/ColdMemoryAdapter';
-import { KnowledgeBaseAdapter } from './adapters/KnowledgeBaseAdapter';
+import { HotMemoryAdapter } from './HotMemoryAdapter';
+import { WarmMemoryAdapter } from './WarmMemoryAdapter';
+import { ColdMemoryAdapter } from './ColdMemoryAdapter';
+import { KnowledgeBaseAdapter } from './KnowledgeBaseAdapter';
 
 /**
  * 记忆系统实现

@@ -18,19 +18,19 @@ import {
   EvolutionSystemEvent,
   EvolutionOpportunity,
   EvolutionTrigger
-} from '../../core/interfaces/IEvolutionSystem';
+} from './core/interfaces/IEvolutionSystem';
 
-import { SkillSystem } from '../skill-system/SkillSystem';
-import { MemorySystem } from '../memory-system/MemorySystem';
-import { PersonalitySystem } from '../personality-system/PersonalitySystem';
+import { SkillSystem } from './SkillSystem';
+import { MemorySystem } from './MemorySystem';
+import { PersonalitySystem } from './PersonalitySystem';
 
-import { SelfAwarenessStrategy } from './strategies/SelfAwarenessStrategy';
-import { SkillOptimizationStrategy } from './strategies/SkillOptimizationStrategy';
-import { ModelImprovementStrategy } from './strategies/ModelImprovementStrategy';
-import { PersonalityEvolutionStrategy } from './strategies/PersonalityEvolutionStrategy';
-import { MemoryOptimizationStrategy } from './strategies/MemoryOptimizationStrategy';
+import { SelfAwarenessStrategy } from './evolution/strategies/SelfAwarenessStrategy';
+import { SkillOptimizationStrategy } from './evolution/strategies/SkillOptimizationStrategy';
+import { ModelImprovementStrategy } from './evolution/strategies/ModelImprovementStrategy';
+import { PersonalityEvolutionStrategy } from './evolution/strategies/PersonalityEvolutionStrategy';
+import { MemoryOptimizationStrategy } from './evolution/strategies/MemoryOptimizationStrategy';
 
-import { EvolutionSandbox } from './sandbox/EvolutionSandbox';
+import { EvolutionSandbox } from './evolution/sandbox/EvolutionSandbox';
 
 /**
  * 进化系统实现

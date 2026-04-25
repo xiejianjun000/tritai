@@ -8,7 +8,7 @@
 
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
-import { IStorageAdapter, Memory, RetrieveOptions } from '../../../core/interfaces/IMemorySystem';
+import { IStorageAdapter, Memory, RetrieveOptions } from './core/interfaces/IMemorySystem';
 
 /**
  * 温记忆适配器配置

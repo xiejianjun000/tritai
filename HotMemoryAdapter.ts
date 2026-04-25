@@ -6,7 +6,7 @@
  * @version 1.0.0
  */
 
-import { IStorageAdapter, Memory } from '../../../core/interfaces/IMemorySystem';
+import { IStorageAdapter, Memory } from './core/interfaces/IMemorySystem';
 
 /**
  * LRU缓存实现
