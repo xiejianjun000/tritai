@@ -27,10 +27,9 @@ jobs:
       - name: 运行 WFGY 验证测试
         run: node verify.js
 
-  type-check:
+  kg-test:
     runs-on: ubuntu-latest
-    name: TypeScript 类型检查
-    continue-on-error: true
+    name: 知识图谱集成测试
 
     steps:
       - name: 检出代码
@@ -44,5 +43,5 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
-      - name: TypeScript 类型检查
-        run: npx tsc --noEmit
+      - name: 运行知识图谱测试
+        run: node test-kg-integration.js
