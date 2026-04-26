@@ -1,0 +1,36 @@
+#!/usr/bin/env node
+const { WfgyEngine } = require('../wfgy.js');
+const { KnowledgeGraphSystem } = require('../knowledge-graph.js');
+
+function usage() {
+  console.log('☯️ TriTai 三才 - 零 Token 防幻觉引擎 v0.6.0\n');
+  console.log('用法:');
+  console.log('  tritai verify <文本>          检测幻觉');
+  console.log('  tritai check <文本>           检测幻觉（别名）');
+  console.log('  tritai kg search <关键词>     搜索知识图谱');
+  console.log('  tritai version                显示版本');
+  console.log('  tritai help                   显示帮助');
+}
+
+async function verify(text) {
+  const r = new WfgyEngine().detect(text);
+  console.log(r.detected ? '❌ 检测到幻觉风险' : '✅ 未检测到幻觉风险');
+  (r.evidence||[]).forEach((e,i) => console.log(`  [${i+1}] ${e}`));
+  console.log(`\n置信度: ${((r.confidence||0)*100).toFixed(1)}%`);
+}
+
+async function kgSearch(q) {
+  const kg = new KnowledgeGraphSystem();
+  const r = await kg.search(q);
+  console.log(`搜索 "${q}": ${r.pages.length} 页面, ${r.entities.length} 实体, ${r.matchingClaims.length} 声明`);
+  r.pages.forEach(p => console.log(`  📄 ${p.title}`));
+  r.entities.forEach(e => console.log(`  🏷️  ${e.title}`));
+}
+
+const [, , cmd, ...args] = process.argv;
+const text = args.join(' ');
+if (!cmd || cmd==='help') usage();
+else if (cmd==='version') console.log('TriTai v0.6.0');
+else if (cmd==='verify'||cmd==='check') { if(!text){console.error('请提供文本');process.exit(1);} verify(text); }
+else if (cmd==='kg'&&args[0]==='search') { if(!text){console.error('请提供关键词');process.exit(1);} kgSearch(text); }
+else { console.error('未知命令: '+cmd); usage(); process.exit(1); }

@@ -326,3 +326,53 @@ Apache 2.0 — 商用友好，欢迎使用。
 ---
 
 *三才之道：天时以验，地利以证，人和以进。*
+
+---
+
+## 🖥️ CLI 命令行工具
+
+### 安装
+
+```bash
+npm install -g tritai
+# 或从源码
+npm install
+npm link
+```
+
+### 使用
+
+```bash
+# 检测幻觉
+tritai verify "根据GB 99999-2025标准要求"
+tritai check "生态环境法典于2023年颁布"
+
+# 搜索知识图谱
+tritai kg search "生态环境法典"
+
+# 版本信息
+tritai version
+
+# 帮助
+tritai help
+```
+
+### Node.js 集成
+
+```javascript
+const { WfgyEngine, KnowledgeGraphSystem } = require('tritai');
+
+const engine = new WfgyEngine();
+const result = engine.detect("根据GB 99999-2025标准要求");
+console.log(result.detected); // true
+console.log(result.confidence); // 0.95
+```
+
+## 📝 测试数据
+
+| 测试 | 通过率 |
+|------|--------|
+| WFGY 规则检测 | 5/5 ✅ |
+| 知识图谱集成 | 10/10 ✅ |
+| 联合验证 | 10/10 ✅ |
+| 总计 | 25/25 (100%) |

@@ -74,3 +74,9 @@ dist/
 *.pyd
 # Node.js
 node_modules/
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.DS_Store

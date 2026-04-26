@@ -1,8 +1,8 @@
 {
-  "name": "open-taiji-mcp-client",
-  "version": "1.0.0",
-  "description": "MCP Client implementation for OpenTaiji",
-  "main": "index.ts",
+  "name": "tritai",
+  "version": "0.6.0",
+  "description": "TriTai \u4e09\u624d - \u96f6 Token \u9632\u5e7b\u89c9\u5f15\u64ce\uff0c\u57fa\u4e8e\u592a\u6781\u54f2\u5b66\u7684 AI \u5e7b\u89c9\u68c0\u6d4b\u7cfb\u7edf",
+  "main": "wfgy.js",
   "types": "index.ts",
   "scripts": {
     "build": "tsc --project tsconfig.json",
@@ -20,5 +20,31 @@
   "devDependencies": {
     "@types/node": "^20.19.39",
     "typescript": "^5.9.3"
-  }
+  },
+  "keywords": [
+    "ai-hallucination",
+    "wfgy",
+    "verification",
+    "llm",
+    "anti-hallucination",
+    "knowledge-graph"
+  ],
+  "author": "Junge <xiejianjun000@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xiejianjun000/tritai"
+  },
+  "license": "MIT",
+  "bin": {
+    "tritai": "./bin/tritai"
+  },
+  "files": [
+    "wfgy.js",
+    "knowledge-graph.js",
+    "verify.js",
+    "types.ts",
+    "bin/",
+    "src/",
+    "docs/"
+  ]
 }
