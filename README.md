@@ -383,3 +383,16 @@ console.log(result.confidence); // 0.95
 | 知识图谱集成 | 10/10 ✅ |
 | 联合验证 | 10/10 ✅ |
 | 总计 | 25/25 (100%) |
+
+---
+
+## 🌐 生态系统
+
+TriTai 是 **OpenTaiji 生态** 的核心组件：
+
+| 项目 | 说明 | 链接 |
+|------|------|------|
+| **OpenTaiji** | 分布式多智能体协作引擎 | [open-taiji](https://github.com/xiejianjun000/open-taiji) |
+| **TriTai** | 零 Token 防幻觉引擎（本项目） | — |
+| **Taiji Agent** | 太极智能体框架 | [taiji-agent](https://github.com/xiejianjun000/taiji-agent) |
+| **AI Valuation** | AI 项目身价计算器 | [ai-valuation-skill](https://github.com/xiejianjun000/ai-valuation-skill) |
