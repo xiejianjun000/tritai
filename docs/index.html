@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TriTai 三才 - 零 Token AI 防幻觉引擎</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a0a;color:#e0e0e0;line-height:1.6}
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#16213e 100%)}
+.hero h1{font-size:3.5rem;margin-bottom:.5rem;background:linear-gradient(135deg,#ff6b6b,#4ecdc4,#45b7d1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero .subtitle{font-size:1.2rem;color:#888;margin-bottom:2rem}
+.hero .tagline{font-size:1rem;color:#4ecdc4;margin-bottom:3rem}
+.btn{display:inline-block;padding:.8rem 2rem;border-radius:8px;text-decoration:none;font-weight:600;margin:.5rem;transition:transform .2s}
+.btn:hover{transform:translateY(-2px)}
+.btn-primary{background:linear-gradient(135deg,#4ecdc4,#45b7d1);color:#000}
+.btn-secondary{border:2px solid #4ecdc4;color:#4ecdc4}
+.features{max-width:1200px;margin:4rem auto;padding:0 2rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem}
+.feature{background:#111;padding:2rem;border-radius:12px;border:1px solid #222}
+.feature h3{color:#4ecdc4;margin-bottom:.5rem}
+.feature p{color:#888;font-size:.9rem}
+.stats{display:flex;justify-content:center;gap:4rem;padding:4rem 2rem;background:#111}
+.stat{text-align:center}
+.stat .num{font-size:2.5rem;font-weight:700;color:#4ecdc4}
+.stat .label{color:#888;font-size:.9rem}
+footer{text-align:center;padding:2rem;color:#555;border-top:1px solid #222}
+@media(max-width:768px){.hero h1{font-size:2rem}.stats{flex-direction:column;gap:2rem}}
+</style>
+</head>
+<body>
+<section class="hero">
+<h1>☯️ TriTai 三才</h1>
+<div class="subtitle">零 Token AI 防幻觉引擎</div>
+<div class="tagline">天时 · 地利 · 人和 · 太极哲学驱动</div>
+<a href="https://github.com/xiejianjun000/tritai" class="btn btn-primary">⭐ Star on GitHub</a>
+<a href="https://github.com/xiejianjun000/tritai#getting-started" class="btn btn-secondary">📖 快速开始</a>
+</section>
+<section class="stats">
+<div class="stat"><div class="num">90%+</div><div class="label">检测准确率</div></div>
+<div class="stat"><div class="num">0</div><div class="label">Token 消耗</div></div>
+<div class="stat"><div class="num">&lt;1ms</div><div class="label">检测延迟</div></div>
+<div class="stat"><div class="num">5</div><div class="label">检测规则</div></div>
+</section>
+<section class="features">
+<div class="feature"><h3>🔍 WFGY 规则引擎</h3><p>5 大检测规则：假标准、时间穿越、自相矛盾、法典状态、虚假历史，覆盖主流幻觉模式。</p></div>
+<div class="feature"><h3>🧠 知识图谱</h3><p>与 WFGY 深度集成，页面添加自动验证，置信度智能修正，实体关系可视化。</p></div>
+<div class="feature"><h3>🖥️ CLI 工具</h3><p>一行命令检测幻觉：tritai verify "文本内容"，支持知识图谱搜索和验证。</p></div>
+<div class="feature"><h3>📦 易于集成</h3><p>Node.js 原生支持，可嵌入任何 LLM 应用工作流，零额外依赖。</p></div>
+</section>
+<footer>
+<p>© 2026 TriTai · MIT License · <a href="https://github.com/xiejianjun000/tritai" style="color:#4ecdc4">GitHub</a></p>
+</footer>
+</body>
+</html>
