@@ -3,6 +3,13 @@
 # ☯️ TriTai 三才 — 零 Token 防幻觉引擎
 
 **天时 · 地利 · 人和 · 太极哲学驱动的生产级 AI 防幻觉系统**
+[![npm version](https://img.shields.io/badge/npm-v0.6.0-blue)](https://www.npmjs.com/package/tritai)
+[![CI](https://img.shields.io/github/actions/workflow/status/xiejianjun000/tritai/ci.yml?label=CI)](https://github.com/xiejianjun000/tritai/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Stars](https://img.shields.io/github/stars/xiejianjun000/tritai?style=social)](https://github.com/xiejianjun000/tritai/stargazers)
+[![Good First Issues](https://img.shields.io/github/issues/xiejianjun000/tritai/good%20first%20issue)](https://github.com/xiejianjun000/tritai/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+
+
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![WFGY Rules](https://img.shields.io/badge/WFGY-5%20rules-brightgreen)](#-wfgy-五大防幻觉规则)
