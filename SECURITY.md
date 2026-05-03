@@ -6,7 +6,7 @@
 
 ### 报告渠道
 
-- **GitHub Security Advisories**：建议使用此方式报告，您可以在 [Security](https://github.com/xiejianjun000/{REPO}/security) 页面提交漏洞报告
+- **GitHub Security Advisories**：建议使用此方式报告，您可以在 [Security](https://github.com/xiejianjun000/tritai/security) 页面提交漏洞报告
 - **邮件**：发送邮件至 [INSERT_EMAIL_HERE]（请加密敏感信息）
 
 ### 报告内容
