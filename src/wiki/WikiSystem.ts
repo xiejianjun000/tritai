@@ -13,7 +13,7 @@ import {
   WikiFreshnessLevel
 } from './interfaces/IWikiSystem';
 import { calculateSemanticSimilarity } from '../memory/embeddings';
-import { DeterminismSystem } from '../DeterminismSystem';
+import { DeterminismSystem } from '../determinism/DeterminismSystem';
 
 /**
  * OpenTaiji Wiki 知识图谱系统核心实现

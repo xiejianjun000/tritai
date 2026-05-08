@@ -1,7 +1,7 @@
 /**
  * MemorySystem.ts
  * 记忆系统核心实现
- * 
+ *
  * @author 昆仑框架团队
  * @version 1.0.0
  */
@@ -20,10 +20,10 @@ import {
   IStorageAdapter
 } from './core/interfaces/IMemorySystem';
 
-import { HotMemoryAdapter } from './HotMemoryAdapter';
-import { WarmMemoryAdapter } from './WarmMemoryAdapter';
-import { ColdMemoryAdapter } from './ColdMemoryAdapter';
-import { KnowledgeBaseAdapter } from './KnowledgeBaseAdapter';
+import { HotMemoryAdapter, HotMemoryConfig } from './HotMemoryAdapter';
+import { WarmMemoryAdapter, WarmMemoryConfig } from './WarmMemoryAdapter';
+import { ColdMemoryAdapter, ColdMemoryConfig } from './ColdMemoryAdapter';
+import { KnowledgeBaseAdapter, KnowledgeBaseConfig } from './KnowledgeBaseAdapter';
 
 /**
  * 记忆系统实现
@@ -31,16 +31,16 @@ import { KnowledgeBaseAdapter } from './KnowledgeBaseAdapter';
 export class MemorySystem extends EventEmitter implements IMemorySystem {
   /** 系统配置 */
   private config: MemorySystemConfig;
-  
+
   /** 存储适配器映射 */
   private adapters: Map<MemoryType, IStorageAdapter> = new Map();
-  
+
   /** 自动迁移定时器 */
   private migrationTimer: NodeJS.Timeout | null = null;
-  
+
   /** 自动清理定时器 */
   private cleanupTimer: NodeJS.Timeout | null = null;
-  
+
   /** 初始化状态 */
   private initialized: boolean = false;
 
@@ -91,7 +91,7 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
   private async initializeAdapters(): Promise<void> {
     // 初始化Hot Memory适配器
     const hotAdapter = new HotMemoryAdapter();
-    await hotAdapter.initialize({
+    await hotAdapter.initializeWithConfig({
       maxSize: 1000,
       ttl: 3600000 // 1小时
     });
@@ -99,21 +99,22 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
 
     // 初始化Warm Memory适配器
     const warmAdapter = new WarmMemoryAdapter();
-    await warmAdapter.initialize({
-      dbPath: './data/memory/warm_memory.db'
+    await warmAdapter.initializeWithConfig({
+      dbPath: './data/memory/warm_memory.db',
+      enableFTS: true
     });
     this.adapters.set(MemoryType.WARM, warmAdapter);
 
     // 初始化Cold Memory适配器
     const coldAdapter = new ColdMemoryAdapter();
-    await coldAdapter.initialize({
+    await coldAdapter.initializeWithConfig({
       storagePath: './data/memory/cold'
     });
     this.adapters.set(MemoryType.COLD, coldAdapter);
 
     // 初始化知识库适配器
     const knowledgeAdapter = new KnowledgeBaseAdapter();
-    await knowledgeAdapter.initialize({
+    await knowledgeAdapter.initializeWithConfig({
       vectorDbConfig: {
         url: 'http://localhost:6333',
         collectionName: 'knowledge_base'
@@ -138,15 +139,15 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
    * 生成默认元数据
    */
   private generateDefaultMetadata(
-    userId: string,
-    tenantId: string,
-    type: MemoryType
+    userId: string | undefined,
+    tenantId: string | undefined,
+    type: string | undefined
   ): MemoryMetadata {
     return {
       id: `memory_${uuidv4()}`,
-      userId,
-      tenantId,
-      type,
+      userId: userId || '',
+      tenantId: tenantId || '',
+      type: (type as MemoryType) || MemoryType.WARM,
       createdAt: new Date(),
       updatedAt: new Date(),
       priority: 0.5,
@@ -173,17 +174,22 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     // 合并元数据和内容
     const memoryToStore: Memory = {
       ...metadata,
-      ...memory
+      ...memory,
+      content: memory.content || memory.text || '',
+      timestamp: memory.timestamp || Date.now()
     };
 
     // 获取适配器并存储
-    const adapter = this.getAdapter(memory.type);
-    const id = await adapter.store(memoryToStore);
-
-    // 触发事件
-    this.emit(MemorySystemEvent.MEMORY_STORED, { memory: memoryToStore });
-
-    return id;
+    const adapter = this.getAdapter((memory.type as MemoryType) || MemoryType.WARM);
+    if (adapter.store) {
+      const id = await adapter.store(memoryToStore);
+      this.emit(MemorySystemEvent.MEMORY_STORED, { memory: memoryToStore });
+      return id;
+    } else {
+      await adapter.save(memoryToStore);
+      this.emit(MemorySystemEvent.MEMORY_STORED, { memory: memoryToStore });
+      return memoryToStore.id;
+    }
   }
 
   /**
@@ -230,25 +236,27 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
 
     // 从每个类型中检索记忆
     for (const type of types) {
-      const adapter = this.getAdapter(type);
-      const typeResults = await adapter.retrieve(query, effectiveOptions);
+      const adapter = this.getAdapter(type as MemoryType);
+      const typeResults = await adapter.list({ ...effectiveOptions, query });
       results.push(...typeResults);
     }
 
     // 排序和去重
     const uniqueResults = this.deduplicateMemories(results);
-    
+
     // 如果需要按相关性排序
     if (effectiveOptions.sortByRelevance) {
       uniqueResults.sort((a, b) => {
         // 按置信度、优先级和更新时间排序
-        if (a.confidence !== b.confidence) {
-          return b.confidence - a.confidence;
+        if ((a.confidence ?? 0) !== (b.confidence ?? 0)) {
+          return (b.confidence ?? 0) - (a.confidence ?? 0);
         }
-        if (a.priority !== b.priority) {
-          return b.priority - a.priority;
+        if ((a.priority ?? 0) !== (b.priority ?? 0)) {
+          return (b.priority ?? 0) - (a.priority ?? 0);
         }
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        const aTime = a.updatedAt instanceof Date ? a.updatedAt.getTime() : (a.timestamp || 0);
+        const bTime = b.updatedAt instanceof Date ? b.updatedAt.getTime() : (b.timestamp || 0);
+        return bTime - aTime;
       });
     }
 
@@ -275,14 +283,24 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     // 如果指定了类型，直接使用对应适配器
     if (options?.type) {
       const adapter = this.getAdapter(options.type);
-      return adapter.getById(id);
+      if (adapter.getById) {
+        return adapter.getById(id);
+      }
+      return adapter.retrieve(id);
     }
 
     // 否则遍历所有适配器查找
     for (const adapter of this.adapters.values()) {
-      const memory = await adapter.getById(id);
-      if (memory) {
-        return memory;
+      if (adapter.getById) {
+        const memory = await adapter.getById(id);
+        if (memory) {
+          return memory;
+        }
+      } else {
+        const memory = await adapter.retrieve(id);
+        if (memory) {
+          return memory;
+        }
       }
     }
 
@@ -303,11 +321,20 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     let foundMemory: Memory | null = null;
 
     for (const adapter of this.adapters.values()) {
-      const memory = await adapter.getById(id);
-      if (memory) {
-        foundAdapter = adapter;
-        foundMemory = memory;
-        break;
+      if (adapter.getById) {
+        const memory = await adapter.getById(id);
+        if (memory) {
+          foundAdapter = adapter;
+          foundMemory = memory;
+          break;
+        }
+      } else {
+        const memory = await adapter.retrieve(id);
+        if (memory) {
+          foundAdapter = adapter;
+          foundMemory = memory;
+          break;
+        }
       }
     }
 
@@ -323,13 +350,17 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     };
 
     // 更新记忆
-    const result = await foundAdapter.update(id, updatedMemory);
-
-    if (result) {
-      this.emit(MemorySystemEvent.MEMORY_UPDATED, { memory: result });
+    if (foundAdapter.update) {
+      const result = await foundAdapter.update(id, updatedMemory);
+      if (result) {
+        this.emit(MemorySystemEvent.MEMORY_UPDATED, { memory: result });
+      }
+      return result;
+    } else {
+      await foundAdapter.save(updatedMemory);
+      this.emit(MemorySystemEvent.MEMORY_UPDATED, { memory: updatedMemory });
+      return updatedMemory;
     }
-
-    return result;
   }
 
   /**
@@ -343,7 +374,7 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     for (const adapter of this.adapters.values()) {
       try {
         await adapter.delete(id);
-      } catch (error) {
+      } catch (_error) {
         // 忽略错误，继续尝试其他适配器
       }
     }
@@ -387,23 +418,25 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     }
 
     // 合并文本内容
-    const mergedText = memories.map(m => m.text).join('\n\n');
-    
+    const mergedText = memories.map(m => m.text || m.content || '').join('\n\n');
+
     // 合并标签
-    const mergedTags = Array.from(new Set(memories.flatMap(m => m.tags)));
-    
+    const mergedTags = Array.from(new Set(memories.flatMap(m => m.tags || [])));
+
     // 计算平均置信度和优先级
-    const avgConfidence = memories.reduce((sum, m) => sum + m.confidence, 0) / memories.length;
-    const avgPriority = memories.reduce((sum, m) => sum + m.priority, 0) / memories.length;
+    const avgConfidence = memories.reduce((sum, m) => sum + (m.confidence ?? 0), 0) / memories.length;
+    const avgPriority = memories.reduce((sum, m) => sum + (m.priority ?? 0), 0) / memories.length;
 
     // 创建合并后的记忆
     const mergedMemory: Memory = {
       ...this.generateDefaultMetadata(
         memories[0].userId,
         memories[0].tenantId,
-        MemoryType.COLD // 合并后存储到冷记忆
+        memories[0].type
       ),
+      content: mergedText,
       text: mergedText,
+      timestamp: Date.now(),
       tags: mergedTags,
       confidence: avgConfidence,
       priority: avgPriority,
@@ -443,7 +476,7 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     const tagGroups: Record<string, Memory[]> = {};
 
     for (const memory of memories) {
-      for (const tag of memory.tags) {
+      for (const tag of memory.tags || []) {
         if (!tagGroups[tag]) {
           tagGroups[tag] = [];
         }
@@ -486,8 +519,8 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     const toAdapter = this.getAdapter(toType);
 
     // 检索所有源类型的记忆
-    const memories = await fromAdapter.retrieve('');
-    
+    const memories = await fromAdapter.list({});
+
     let migratedCount = 0;
 
     for (const memory of memories) {
@@ -503,7 +536,12 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
           type: toType,
           id: `memory_${uuidv4()}` // 生成新ID
         };
-        await toAdapter.store(migratedMemory);
+
+        if (toAdapter.store) {
+          await toAdapter.store(migratedMemory);
+        } else {
+          await toAdapter.save(migratedMemory);
+        }
 
         // 删除源记忆
         await fromAdapter.delete(memory.id);
@@ -536,7 +574,8 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
         to: MemoryType.WARM,
         condition: (memory: Memory) => {
           // 迁移超过1小时的热记忆
-          const age = Date.now() - new Date(memory.createdAt).getTime();
+          const createdAt = memory.createdAt instanceof Date ? memory.createdAt.getTime() : (memory.timestamp || Date.now());
+          const age = Date.now() - createdAt;
           return age > 3600000; // 1小时
         }
       },
@@ -545,7 +584,8 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
         to: MemoryType.COLD,
         condition: (memory: Memory) => {
           // 迁移超过7天的工作记忆
-          const age = Date.now() - new Date(memory.createdAt).getTime();
+          const createdAt = memory.createdAt instanceof Date ? memory.createdAt.getTime() : (memory.timestamp || Date.now());
+          const age = Date.now() - createdAt;
           return age > 7 * 24 * 60 * 60 * 1000; // 7天
         }
       }
@@ -568,8 +608,10 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
 
     for (const memoryType of types) {
       const adapter = this.getAdapter(memoryType);
-      const cleanedCount = await adapter.cleanup(this.getMaxAgeForType(memoryType));
-      totalCleaned += cleanedCount;
+      if (adapter.cleanup) {
+        const cleanedCount = await adapter.cleanup(this.getMaxAgeForType(memoryType));
+        totalCleaned += cleanedCount;
+      }
     }
 
     return totalCleaned;
@@ -579,8 +621,8 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
    * 获取类型对应的最大存在时间
    */
   private getMaxAgeForType(type: MemoryType): number {
-    const cleanupRule = this.config.storagePolicy.cleanupRules.find(
-      rule => rule.type === type
+    const cleanupRule = this.config.storagePolicy?.cleanupRules?.find(
+      (rule: { type: MemoryType }) => rule.type === type
     );
     return cleanupRule?.maxAge || 30 * 24 * 60 * 60 * 1000; // 默认30天
   }
@@ -620,18 +662,18 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
     // 从每个适配器获取统计
     for (const [type, adapter] of this.adapters) {
       const adapterStats = await adapter.getStats();
-      stats.byType[type] = adapterStats.totalCount;
-      stats.totalCount += adapterStats.totalCount;
-      stats.totalSize += adapterStats.totalSize;
+      stats.byType[type] = adapterStats.count;
+      stats.totalCount += adapterStats.count;
+      stats.totalSize += adapterStats.size;
     }
 
     // 获取标签统计（只从热记忆和工作记忆中获取）
     const warmMemories = await this.retrieve('', { type: MemoryType.WARM });
     const hotMemories = await this.retrieve('', { type: MemoryType.HOT });
-    
+
     const allMemories = [...warmMemories, ...hotMemories];
     for (const memory of allMemories) {
-      for (const tag of memory.tags) {
+      for (const tag of memory.tags || []) {
         stats.byTag[tag] = (stats.byTag[tag] || 0) + 1;
       }
     }
@@ -697,7 +739,9 @@ export class MemorySystem extends EventEmitter implements IMemorySystem {
 
     // 关闭所有适配器
     for (const adapter of this.adapters.values()) {
-      await adapter.close();
+      if (adapter.close) {
+        await adapter.close();
+      }
     }
 
     // 移除所有监听器

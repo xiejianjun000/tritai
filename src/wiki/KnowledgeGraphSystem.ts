@@ -6,7 +6,7 @@
 
 import { WikiSystem } from './WikiSystem';
 import type { IWikiSystem, WikiSystemConfig, WikiPageKind } from './interfaces/IWikiSystem';
-import { DeterminismSystem } from '../DeterminismSystem';
+import { DeterminismSystem } from '../determinism/DeterminismSystem';
 
 export interface KnowledgeGraphConfig extends WikiSystemConfig {
   /** 启用 WFGY 集成 */

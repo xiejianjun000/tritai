@@ -1,7 +1,7 @@
 /**
  * KnowledgeBaseAdapter.ts
  * 知识库适配器（向量数据库存储）
- * 
+ *
  * @author 昆仑框架团队
  * @version 1.0.0
  */
@@ -123,18 +123,21 @@ export interface KnowledgeBaseConfig {
     apiKey?: string;
   };
   /** 向量维度 */
-  vectorDimension: number;
+  vectorDimension?: number;
 }
 
 /**
  * 知识库适配器实现（向量数据库存储）
  */
-export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
+export class KnowledgeBaseAdapter implements IStorageAdapter, IVectorStoreAdapter {
   /** 向量数据库客户端 */
   private vectorDb: QdrantClient;
-  
+
   /** 配置 */
-  private config: KnowledgeBaseConfig;
+  private config: Required<KnowledgeBaseConfig>;
+
+  /** 适配器名称 */
+  public readonly name: string = 'KnowledgeBaseAdapter';
 
   /**
    * 构造函数
@@ -152,20 +155,126 @@ export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
 
   /**
    * 初始化适配器
-   * @param config 适配器配置
    */
-  async initialize(config: KnowledgeBaseConfig): Promise<void> {
-    this.config = config;
-    this.vectorDb = new QdrantClient(config.vectorDbConfig);
-    
+  async initialize(): Promise<void> {
     await this.vectorDb.initialize();
     await this.vectorDb.createCollection(
-      config.vectorDbConfig.collectionName,
-      config.vectorDimension
+      this.config.vectorDbConfig.collectionName,
+      this.config.vectorDimension
     );
 
-    console.log('[KnowledgeBaseAdapter] Initialized at:', config.vectorDbConfig.url);
+    console.log('[KnowledgeBaseAdapter] Initialized at:', this.config.vectorDbConfig.url);
   }
+
+  /**
+   * 使用自定义配置初始化适配器
+   * @param config 适配器配置
+   */
+  async initializeWithConfig(config: KnowledgeBaseConfig): Promise<void> {
+    this.config = {
+      vectorDbConfig: config.vectorDbConfig,
+      vectorDimension: config.vectorDimension ?? 1536
+    };
+    this.vectorDb = new QdrantClient(this.config.vectorDbConfig);
+    await this.initialize();
+  }
+
+  // ===== IStorageAdapter 接口实现 =====
+
+  /**
+   * 存储记忆（IStorageAdapter 接口实现）
+   */
+  async save(memory: Memory): Promise<void> {
+    await this.store(memory);
+  }
+
+  /**
+   * 检索记忆（IStorageAdapter 接口实现 - 按ID检索）
+   */
+  async retrieve(id: string): Promise<Memory | null> {
+    return this.getById(id);
+  }
+
+  /**
+   * 列出记忆（IStorageAdapter 接口实现）
+   */
+  async list(options?: RetrieveOptions): Promise<Memory[]> {
+    return this.searchByQuery(options?.query || '', options);
+  }
+
+  /**
+   * 删除记忆（IStorageAdapter 接口实现）
+   */
+  async delete(id: string): Promise<boolean> {
+    try {
+      await this.vectorDb.delete(
+        this.config.vectorDbConfig.collectionName,
+        [id]
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 清空所有记忆（IStorageAdapter 接口实现）
+   */
+  async clear(): Promise<void> {
+    // 简化实现
+  }
+
+  /**
+   * 获取统计信息（IStorageAdapter 接口实现）
+   */
+  async getStats(): Promise<{ count: number; size: number }> {
+    const count = await this.vectorDb.count(this.config.vectorDbConfig.collectionName);
+
+    return {
+      count,
+      size: 0 // 向量数据库大小计算复杂，这里返回0
+    };
+  }
+
+  // ===== IVectorStoreAdapter 接口实现 =====
+
+  /**
+   * 添加向量
+   */
+  async addVector(memoryId: string, vector: number[]): Promise<void> {
+    await this.vectorDb.upsert(
+      this.config.vectorDbConfig.collectionName,
+      [{ id: memoryId, vector, payload: {} }]
+    );
+  }
+
+  /**
+   * 向量搜索（IVectorStoreAdapter 接口实现）
+   */
+  async search(queryVector: number[], limit?: number): Promise<{ memoryId: string; score: number }[]> {
+    const results = await this.vectorDb.search(
+      this.config.vectorDbConfig.collectionName,
+      { vector: queryVector },
+      limit || 10
+    );
+
+    return results.map(r => ({
+      memoryId: r.id,
+      score: r.score
+    }));
+  }
+
+  /**
+   * 删除向量
+   */
+  async remove(memoryId: string): Promise<void> {
+    await this.vectorDb.delete(
+      this.config.vectorDbConfig.collectionName,
+      [memoryId]
+    );
+  }
+
+  // ===== 扩展方法 =====
 
   /**
    * 转换记忆为向量点
@@ -182,13 +291,13 @@ export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
         userId: memory.userId,
         tenantId: memory.tenantId,
         type: memory.type,
-        createdAt: memory.createdAt.toISOString(),
-        updatedAt: memory.updatedAt.toISOString(),
+        createdAt: (memory.createdAt || new Date()).toISOString(),
+        updatedAt: (memory.updatedAt || new Date()).toISOString(),
         priority: memory.priority,
         tags: memory.tags,
         confidence: memory.confidence,
         source: memory.source,
-        text: memory.text,
+        text: memory.text || memory.content || '',
         expiresAt: memory.expiresAt?.toISOString()
       }
     };
@@ -200,6 +309,8 @@ export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
   private pointToMemory(point: any): Memory {
     return {
       id: point.id,
+      content: point.payload.text || '',
+      timestamp: new Date(point.payload.createdAt).getTime(),
       userId: point.payload.userId,
       tenantId: point.payload.tenantId,
       type: point.payload.type,
@@ -266,14 +377,14 @@ export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
   }
 
   /**
-   * 检索记忆
+   * 按查询搜索记忆
    * @param query 检索查询
    * @param options 检索选项
    */
-  async retrieve(query: string, options?: RetrieveOptions): Promise<Memory[]> {
+  async searchByQuery(query: string, options?: RetrieveOptions): Promise<Memory[]> {
     // 简单实现：如果有嵌入向量则使用向量搜索，否则使用关键字搜索
-    if (options?.embedding) {
-      return this.retrieveByVector(options.embedding, options);
+    if ((options as any)?.embedding) {
+      return this.retrieveByVector((options as any).embedding, options);
     }
 
     // 关键字搜索（简化实现，实际应该使用全文索引）
@@ -305,12 +416,6 @@ export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
 
     // 转换为Memory对象
     const memories = searchResults.map(result => this.pointToMemory(result));
-
-    // 应用相似度阈值过滤
-    if (options?.similarityThreshold !== undefined) {
-      // 注意：实际应该使用result.score进行过滤
-      return memories;
-    }
 
     return memories;
   }
@@ -349,17 +454,6 @@ export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
   }
 
   /**
-   * 删除记忆
-   * @param id 记忆ID
-   */
-  async delete(id: string): Promise<void> {
-    await this.vectorDb.delete(
-      this.config.vectorDbConfig.collectionName,
-      [id]
-    );
-  }
-
-  /**
    * 批量删除记忆
    * @param ids 记忆ID列表
    */
@@ -371,25 +465,10 @@ export class KnowledgeBaseAdapter implements IVectorStoreAdapter {
   }
 
   /**
-   * 获取统计信息
-   */
-  async getStats(): Promise<{
-    totalCount: number;
-    totalSize: number;
-  }> {
-    const count = await this.vectorDb.count(this.config.vectorDbConfig.collectionName);
-
-    return {
-      totalCount: count,
-      totalSize: 0 // 向量数据库大小计算复杂，这里返回0
-    };
-  }
-
-  /**
    * 清理过期记忆
    * @param maxAge 最大存在时间（毫秒）
    */
-  async cleanup(maxAge?: number): Promise<number> {
+  async cleanup(_maxAge?: number): Promise<number> {
     // 简化实现，实际应该使用向量数据库的过滤和删除功能
     return 0;
   }

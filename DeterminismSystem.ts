@@ -7,15 +7,15 @@ import {
   SourceTraceResult,
   HallucinationDetectionResult,
   SourceReference
-} from './interfaces/IDeterminismSystem';
-import { WFGYVerifier } from './WFGYVerifier';
-import { SelfConsistencyChecker } from './SelfConsistencyChecker';
-import { SourceTracer } from './SourceTracer';
-import { HallucinationDetector } from './HallucinationDetector';
-import type { WFGYVerifierConfig, WFGYRule, WFGYKnowledgeEntry } from './WFGYVerifier';
-import type { SelfConsistencyCheckerConfig } from './SelfConsistencyChecker';
-import type { SourceTracerConfig, KnowledgeIndexEntry } from './SourceTracer';
-import type { HallucinationDetectorConfig } from './HallucinationDetector';
+} from './src/determinism/interfaces/IDeterminismSystem';
+import { WFGYVerifier } from './src/determinism/WFGYVerifier';
+import { SelfConsistencyChecker } from './src/determinism/SelfConsistencyChecker';
+import { SourceTracer } from './src/determinism/SourceTracer';
+import { HallucinationDetector } from './src/determinism/HallucinationDetector';
+import type { WFGYVerifierConfig, WFGYRule, WFGYKnowledgeEntry } from './src/determinism/WFGYVerifier';
+import type { SelfConsistencyCheckerConfig } from './src/determinism/SelfConsistencyChecker';
+import type { SourceTracerConfig, KnowledgeIndexEntry } from './src/determinism/SourceTracer';
+import type { HallucinationDetectorConfig } from './src/determinism/HallucinationDetector';
 
 /**
  * 确定性系统总配置
