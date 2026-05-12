@@ -17,7 +17,8 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "allowSyntheticDefaultImports": true,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "composite": true
   },
   "include": [
     "*.ts"
