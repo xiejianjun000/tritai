@@ -10,3 +10,6 @@ pnpm-lock.yaml
 .env.*
 *.log
 cache/
+
+# GitHub workflows and templates
+.github/
