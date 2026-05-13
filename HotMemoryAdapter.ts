@@ -1,12 +1,12 @@
 /**
  * HotMemoryAdapter.ts
  * 热记忆适配器（会话级内存）
- * 
+ *
  * @author 昆仑框架团队
  * @version 1.0.0
  */
 
-import { IStorageAdapter, Memory } from './core/interfaces/IMemorySystem';
+import { IStorageAdapter, Memory, RetrieveOptions } from './core/interfaces/IMemorySystem';
 
 /**
  * LRU缓存实现
@@ -34,7 +34,9 @@ class LRUCache<T> {
     // 如果缓存已满，删除最久未使用的
     if (this.cache.size >= this.capacity) {
       const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
     }
 
     // 添加新项到缓存末尾
@@ -82,12 +84,15 @@ export interface HotMemoryConfig {
 export class HotMemoryAdapter implements IStorageAdapter {
   /** 缓存 */
   private cache: LRUCache<Memory>;
-  
+
   /** 配置 */
   private config: HotMemoryConfig;
-  
+
   /** 过期检查定时器 */
   private cleanupTimer: NodeJS.Timeout | null = null;
+
+  /** 适配器名称 */
+  public readonly name: string = 'HotMemoryAdapter';
 
   /**
    * 构造函数
@@ -99,19 +104,26 @@ export class HotMemoryAdapter implements IStorageAdapter {
 
   /**
    * 初始化适配器
-   * @param config 适配器配置
    */
-  async initialize(config: HotMemoryConfig): Promise<void> {
-    this.config = config;
-    this.cache = new LRUCache<Memory>(config.maxSize);
+  async initialize(): Promise<void> {
+    this.cache = new LRUCache<Memory>(this.config.maxSize);
 
     // 设置定期清理过期记忆
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
     }
-    this.cleanupTimer = setInterval(() => this.cleanupExpired(), config.ttl / 2);
+    this.cleanupTimer = setInterval(() => this.cleanupExpired(), this.config.ttl / 2);
 
-    console.log('[HotMemoryAdapter] Initialized with maxSize:', config.maxSize, 'ttl:', config.ttl);
+    console.log('[HotMemoryAdapter] Initialized with maxSize:', this.config.maxSize, 'ttl:', this.config.ttl);
+  }
+
+  /**
+   * 使用自定义配置初始化适配器
+   * @param config 适配器配置
+   */
+  async initializeWithConfig(config: HotMemoryConfig): Promise<void> {
+    this.config = config;
+    await this.initialize();
   }
 
   /**
@@ -122,7 +134,8 @@ export class HotMemoryAdapter implements IStorageAdapter {
     const expiredKeys: string[] = [];
 
     for (const [key, memory] of this.cache.entries()) {
-      const age = now - new Date(memory.createdAt).getTime();
+      const createdAt = memory.createdAt instanceof Date ? memory.createdAt.getTime() : (memory.timestamp || now);
+      const age = now - createdAt;
       if (age > this.config.ttl) {
         expiredKeys.push(key);
       }
@@ -135,6 +148,57 @@ export class HotMemoryAdapter implements IStorageAdapter {
     if (expiredKeys.length > 0) {
       console.log(`[HotMemoryAdapter] Cleaned up ${expiredKeys.length} expired memories`);
     }
+  }
+
+  /**
+   * 存储记忆（IStorageAdapter 接口实现）
+   */
+  async save(memory: Memory): Promise<void> {
+    await this.store(memory);
+  }
+
+  /**
+   * 检索记忆（IStorageAdapter 接口实现 - 按ID检索）
+   */
+  async retrieve(id: string): Promise<Memory | null> {
+    return this.getById(id);
+  }
+
+  /**
+   * 列出记忆（IStorageAdapter 接口实现）
+   */
+  async list(options?: RetrieveOptions): Promise<Memory[]> {
+    return this.search(options?.query || '', options);
+  }
+
+  /**
+   * 删除记忆（IStorageAdapter 接口实现）
+   */
+  async delete(id: string): Promise<boolean> {
+    return this.cache.delete(id);
+  }
+
+  /**
+   * 清空所有记忆（IStorageAdapter 接口实现）
+   */
+  async clear(): Promise<void> {
+    this.cache.clear();
+  }
+
+  /**
+   * 获取统计信息（IStorageAdapter 接口实现）
+   */
+  async getStats(): Promise<{ count: number; size: number }> {
+    let totalSize = 0;
+
+    for (const memory of this.cache.values()) {
+      totalSize += (memory.text || memory.content || '').length * 2; // 估算大小
+    }
+
+    return {
+      count: this.cache.size(),
+      size: totalSize
+    };
   }
 
   /**
@@ -172,22 +236,23 @@ export class HotMemoryAdapter implements IStorageAdapter {
   }
 
   /**
-   * 检索记忆
+   * 搜索记忆
    * @param query 检索查询
    * @param options 检索选项
    */
-  async retrieve(query: string, options?: any): Promise<Memory[]> {
+  async search(query: string, options?: any): Promise<Memory[]> {
     // 简单实现：返回所有包含查询文本的记忆
     const results: Memory[] = [];
 
     for (const memory of this.cache.values()) {
-      if (memory.text.includes(query)) {
+      const text = memory.text || memory.content || '';
+      if (text.includes(query)) {
         results.push(memory);
       }
     }
 
     // 按优先级排序
-    results.sort((a, b) => b.priority - a.priority);
+    results.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
 
     // 应用结果数量限制
     if (options?.limit && options.limit > 0) {
@@ -231,14 +296,6 @@ export class HotMemoryAdapter implements IStorageAdapter {
   }
 
   /**
-   * 删除记忆
-   * @param id 记忆ID
-   */
-  async delete(id: string): Promise<void> {
-    this.cache.delete(id);
-  }
-
-  /**
    * 批量删除记忆
    * @param ids 记忆ID列表
    */
@@ -246,25 +303,6 @@ export class HotMemoryAdapter implements IStorageAdapter {
     for (const id of ids) {
       this.cache.delete(id);
     }
-  }
-
-  /**
-   * 获取统计信息
-   */
-  async getStats(): Promise<{
-    totalCount: number;
-    totalSize: number;
-  }> {
-    let totalSize = 0;
-
-    for (const memory of this.cache.values()) {
-      totalSize += memory.text.length * 2; // 估算大小
-    }
-
-    return {
-      totalCount: this.cache.size(),
-      totalSize
-    };
   }
 
   /**
@@ -277,7 +315,8 @@ export class HotMemoryAdapter implements IStorageAdapter {
     const expiredKeys: string[] = [];
 
     for (const [key, memory] of this.cache.entries()) {
-      const age = now - new Date(memory.createdAt).getTime();
+      const createdAt = memory.createdAt instanceof Date ? memory.createdAt.getTime() : (memory.timestamp || now);
+      const age = now - createdAt;
       if (age > ageThreshold) {
         expiredKeys.push(key);
       }

@@ -21,7 +21,10 @@
     "composite": true
   },
   "include": [
-    "*.ts"
+    "*.ts",
+    "src/**/*.ts",
+    "core/**/*.ts",
+    "evolution/**/*.ts"
   ],
   "exclude": [
     "node_modules",

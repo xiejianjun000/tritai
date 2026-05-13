@@ -30,6 +30,9 @@ export class WarmMemoryAdapter implements IStorageAdapter {
   /** 配置 */
   private config: WarmMemoryConfig;
 
+  /** 适配器名称 */
+  public readonly name: string = 'WarmMemoryAdapter';
+
   /**
    * 构造函数
    */
@@ -42,21 +45,27 @@ export class WarmMemoryAdapter implements IStorageAdapter {
 
   /**
    * 初始化适配器
-   * @param config 适配器配置
    */
-  async initialize(config: WarmMemoryConfig): Promise<void> {
-    this.config = config;
-
+  async initialize(): Promise<void> {
     // 打开数据库连接
     this.db = await open({
-      filename: config.dbPath,
+      filename: this.config.dbPath,
       driver: sqlite3.Database
     });
 
     // 创建表
     await this.createTables();
 
-    console.log('[WarmMemoryAdapter] Initialized at:', config.dbPath);
+    console.log('[WarmMemoryAdapter] Initialized at:', this.config.dbPath);
+  }
+
+  /**
+   * 使用自定义配置初始化适配器
+   * @param config 适配器配置
+   */
+  async initializeWithConfig(config: WarmMemoryConfig): Promise<void> {
+    this.config = config;
+    await this.initialize();
   }
 
   /**
@@ -133,6 +142,8 @@ export class WarmMemoryAdapter implements IStorageAdapter {
   private rowToMemory(row: any): Memory {
     return {
       id: row.id,
+      content: row.text || '',
+      timestamp: new Date(row.createdAt).getTime(),
       userId: row.userId,
       tenantId: row.tenantId,
       type: row.type,
@@ -145,6 +156,71 @@ export class WarmMemoryAdapter implements IStorageAdapter {
       text: row.text,
       embedding: row.embedding ? JSON.parse(Buffer.from(row.embedding).toString()) : undefined,
       expiresAt: row.expiresAt ? new Date(row.expiresAt) : undefined
+    };
+  }
+
+  /**
+   * 存储记忆（IStorageAdapter 接口实现）
+   * @param memory 记忆对象
+   */
+  async save(memory: Memory): Promise<void> {
+    await this.store(memory);
+  }
+
+  /**
+   * 检索记忆（IStorageAdapter 接口实现 - 按ID检索）
+   * @param id 记忆ID
+   */
+  async retrieve(id: string): Promise<Memory | null> {
+    return this.getById(id);
+  }
+
+  /**
+   * 列出记忆（IStorageAdapter 接口实现）
+   * @param options 检索选项
+   */
+  async list(options?: RetrieveOptions): Promise<Memory[]> {
+    return this.search(options?.query || '', options);
+  }
+
+  /**
+   * 删除记忆（IStorageAdapter 接口实现）
+   * @param id 记忆ID
+   */
+  async delete(id: string): Promise<boolean> {
+    if (!this.db) {
+      throw new Error('Database connection not initialized');
+    }
+
+    const result = await this.db.run('DELETE FROM memories WHERE id = ?', id);
+    return (result.changes ?? 0) > 0;
+  }
+
+  /**
+   * 清空所有记忆（IStorageAdapter 接口实现）
+   */
+  async clear(): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database connection not initialized');
+    }
+
+    await this.db.run('DELETE FROM memories');
+  }
+
+  /**
+   * 获取统计信息（IStorageAdapter 接口实现）
+   */
+  async getStats(): Promise<{ count: number; size: number }> {
+    if (!this.db) {
+      throw new Error('Database connection not initialized');
+    }
+
+    const countResult = await this.db.get('SELECT COUNT(*) as count FROM memories');
+    const sizeResult = await this.db.get('SELECT SUM(LENGTH(text)) as size FROM memories');
+
+    return {
+      count: countResult.count || 0,
+      size: sizeResult.size || 0
     };
   }
 
@@ -170,16 +246,16 @@ export class WarmMemoryAdapter implements IStorageAdapter {
 
     await stmt.run(
       memory.id,
-      memory.userId,
-      memory.tenantId,
-      memory.type,
-      memory.createdAt.toISOString(),
-      memory.updatedAt.toISOString(),
-      memory.priority,
-      JSON.stringify(memory.tags),
-      memory.confidence,
+      memory.userId || '',
+      memory.tenantId || '',
+      memory.type || 'default',
+      (memory.createdAt || new Date()).toISOString(),
+      (memory.updatedAt || new Date()).toISOString(),
+      memory.priority ?? 0,
+      JSON.stringify(memory.tags || []),
+      memory.confidence ?? 0,
       memory.source,
-      memory.text,
+      memory.text || memory.content || '',
       memory.embedding ? Buffer.from(JSON.stringify(memory.embedding)) : null,
       memory.expiresAt ? memory.expiresAt.toISOString() : null
     );
@@ -217,16 +293,16 @@ export class WarmMemoryAdapter implements IStorageAdapter {
 
         await stmt.run(
           memory.id,
-          memory.userId,
-          memory.tenantId,
-          memory.type,
-          memory.createdAt.toISOString(),
-          memory.updatedAt.toISOString(),
-          memory.priority,
-          JSON.stringify(memory.tags),
-          memory.confidence,
+          memory.userId || '',
+          memory.tenantId || '',
+          memory.type || 'default',
+          (memory.createdAt || new Date()).toISOString(),
+          (memory.updatedAt || new Date()).toISOString(),
+          memory.priority ?? 0,
+          JSON.stringify(memory.tags || []),
+          memory.confidence ?? 0,
           memory.source,
-          memory.text,
+          memory.text || memory.content || '',
           memory.embedding ? Buffer.from(JSON.stringify(memory.embedding)) : null,
           memory.expiresAt ? memory.expiresAt.toISOString() : null
         );
@@ -245,11 +321,11 @@ export class WarmMemoryAdapter implements IStorageAdapter {
   }
 
   /**
-   * 检索记忆
+   * 搜索记忆
    * @param query 检索查询
    * @param options 检索选项
    */
-  async retrieve(query: string, options?: RetrieveOptions): Promise<Memory[]> {
+  async search(query: string, options?: RetrieveOptions): Promise<Memory[]> {
     if (!this.db) {
       throw new Error('Database connection not initialized');
     }
@@ -289,11 +365,17 @@ export class WarmMemoryAdapter implements IStorageAdapter {
     if (options?.timeRange) {
       if (options.timeRange.start) {
         conditions.push('createdAt >= ?');
-        params.push(options.timeRange.start.toISOString());
+        const start = options.timeRange.start instanceof Date
+          ? options.timeRange.start.toISOString()
+          : new Date(options.timeRange.start).toISOString();
+        params.push(start);
       }
       if (options.timeRange.end) {
         conditions.push('createdAt <= ?');
-        params.push(options.timeRange.end.toISOString());
+        const end = options.timeRange.end instanceof Date
+          ? options.timeRange.end.toISOString()
+          : new Date(options.timeRange.end).toISOString();
+        params.push(end);
       }
     }
 
@@ -377,18 +459,6 @@ export class WarmMemoryAdapter implements IStorageAdapter {
   }
 
   /**
-   * 删除记忆
-   * @param id 记忆ID
-   */
-  async delete(id: string): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database connection not initialized');
-    }
-
-    await this.db.run('DELETE FROM memories WHERE id = ?', id);
-  }
-
-  /**
    * 批量删除记忆
    * @param ids 记忆ID列表
    */
@@ -403,26 +473,6 @@ export class WarmMemoryAdapter implements IStorageAdapter {
 
     const placeholders = ids.map(() => '?').join(',');
     await this.db.run(`DELETE FROM memories WHERE id IN (${placeholders})`, ids);
-  }
-
-  /**
-   * 获取统计信息
-   */
-  async getStats(): Promise<{
-    totalCount: number;
-    totalSize: number;
-  }> {
-    if (!this.db) {
-      throw new Error('Database connection not initialized');
-    }
-
-    const countResult = await this.db.get('SELECT COUNT(*) as count FROM memories');
-    const sizeResult = await this.db.get('SELECT SUM(LENGTH(text)) as size FROM memories');
-
-    return {
-      totalCount: countResult.count || 0,
-      totalSize: sizeResult.size || 0
-    };
   }
 
   /**
