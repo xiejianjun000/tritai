@@ -1,0 +1,12 @@
+dist/
+node_modules/
+coverage/
+*.d.ts
+*.d.ts.map
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.env
+.env.*
+*.log
+cache/
