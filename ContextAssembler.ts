@@ -84,7 +84,7 @@ ${rawContext.system ? JSON.stringify(rawContext.system) : 'No system context ava
       for (const [key, value] of Object.entries(rawContext.personality.preferences)) {
         const tokenEstimate = (key + String(value)).length / 4;
         if (totalTokens + tokenEstimate < tokenBudget) {
-          optimized.truncatedPersonality.preferences[key] = value;
+          (optimized.truncatedPersonality.preferences ?? {})[key] = value;
           totalTokens += tokenEstimate;
         } else {
           break;

@@ -3,7 +3,7 @@ import { EvolutionStrategy, EvaluationResult } from '../../core/interfaces/IEvol
 export class PersonalityEvolutionStrategy implements EvolutionStrategy {
   name = 'PersonalityEvolutionStrategy';
   async evaluate(): Promise<EvaluationResult> {
-    return { score: 0, recommendations: [], opportunities: [], risks: [] };
+    return { score: 0, recommendations: [], improvements: [], opportunities: [], risks: [] };
   }
   async apply(_result: EvaluationResult): Promise<void> {}
 }

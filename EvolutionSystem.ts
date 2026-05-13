@@ -36,6 +36,9 @@ import { EvolutionSandbox } from './evolution/sandbox/EvolutionSandbox';
  * 进化系统实现
  */
 export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
+  /** 系统名称 */
+  public readonly name: string = 'EvolutionSystem';
+
   /** 系统配置 */
   private config: EvolutionSystemConfig;
   
@@ -127,22 +130,22 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
    * 初始化进化系统
    * @param config 系统配置
    */
-  async initialize(config: EvolutionSystemConfig): Promise<void> {
-    this.config = config;
+  async initialize(config: Record<string, any>): Promise<void> {
+    this.config = config as EvolutionSystemConfig;
 
     // 初始化沙箱
-    if (config.sandboxConfig.enabled) {
-      await this.sandbox.initialize(config.sandboxConfig);
+    if (this.config.sandboxConfig?.enabled) {
+      await this.sandbox.initialize(this.config);
     }
 
     // 注册进化策略
     this.registerStrategies();
 
     // 设置自动进化
-    if (config.autoEvolutionInterval > 0) {
+    if (this.config.autoEvolutionInterval && this.config.autoEvolutionInterval > 0) {
       this.autoEvolutionTimer = setInterval(
         () => this.autoEvolve(),
-        config.autoEvolutionInterval
+        this.config.autoEvolutionInterval
       );
     }
 
@@ -224,11 +227,11 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
 
     // 创建完整的进化任务
     const evolutionTask: EvolutionTask = {
+      ...task,
       id,
       state: EvolutionState.PENDING,
       progress: 0,
-      createdAt: new Date(),
-      ...task
+      createdAt: Date.now()
     };
 
     // 存储任务
@@ -256,7 +259,10 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     for (const task of tasks) {
       const id = await this.createTask(task);
       ids.push(id);
-      createdTasks.push(this.tasks.get(id)!);
+      const createdTask = this.tasks.get(id);
+      if (createdTask) {
+        createdTasks.push(createdTask);
+      }
     }
 
     // 批量触发事件
@@ -279,14 +285,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
    * 获取进化任务列表
    * @param filter 过滤条件
    */
-  async getTasks(filter?: {
-    type?: EvolutionType;
-    state?: EvolutionState;
-    userId?: string;
-    tenantId?: string;
-    fromDate?: Date;
-    toDate?: Date;
-  }): Promise<EvolutionTask[]> {
+  async getTasks(filter?: any): Promise<EvolutionTask[]> {
     this.ensureInitialized();
 
     let tasks = Array.from(this.tasks.values());
@@ -307,20 +306,18 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       }
       if (filter.fromDate) {
         tasks = tasks.filter(
-          t => new Date(t.createdAt) >= filter.fromDate
+          t => t.createdAt >= new Date(filter.fromDate).getTime()
         );
       }
       if (filter.toDate) {
         tasks = tasks.filter(
-          t => new Date(t.createdAt) <= filter.toDate
+          t => t.createdAt <= new Date(filter.toDate).getTime()
         );
       }
     }
 
     // 按创建时间排序
-    tasks.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    tasks.sort((a, b) => b.createdAt - a.createdAt);
 
     return tasks;
   }
@@ -343,7 +340,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
 
     // 更新任务状态
     task.state = EvolutionState.RUNNING;
-    task.startedAt = new Date();
+    task.startedAt = Date.now();
     task.progress = 0;
 
     this.tasks.set(taskId, task);
@@ -355,16 +352,16 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     this.executeTask(task).then(() => {
       // 任务完成
       task.state = EvolutionState.COMPLETED;
-      task.completedAt = new Date();
+      task.completedAt = Date.now();
       task.progress = 100;
       
       this.tasks.set(taskId, task);
       this.emit(EvolutionSystemEvent.TASK_COMPLETED, { task });
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       // 任务失败
       task.state = EvolutionState.FAILED;
-      task.completedAt = new Date();
-      task.error = error.message;
+      task.completedAt = Date.now();
+      task.error = error instanceof Error ? error.message : String(error);
       
       this.tasks.set(taskId, task);
       this.emit(EvolutionSystemEvent.TASK_FAILED, { task, error });
@@ -383,7 +380,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       const evaluation = await strategy.execute(task);
 
       // 应用进化结果
-      if (this.config.sandboxConfig.enabled) {
+      if (this.config.sandboxConfig?.enabled) {
         await this.applyEvolutionInSandbox(task, evaluation);
       } else {
         await this.applyEvolutionDirectly(task, evaluation);
@@ -391,11 +388,13 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
 
       // 记录进化结果
       task.result = {
-        changes: {},
-        metrics: {
-          score: evaluation.score
-        },
-        recommendations: evaluation.recommendations
+        score: evaluation.score,
+        recommendations: evaluation.recommendations || [],
+        improvements: evaluation.improvements || [],
+        risks: evaluation.risks || [],
+        changes: (evaluation as any).changes,
+        opportunities: evaluation.opportunities || [],
+        rollbackData: (evaluation as any).rollbackData
       };
 
     } catch (error) {
@@ -411,7 +410,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     task: EvolutionTask,
     evaluation: EvolutionEvaluation
   ): Promise<void> {
-    if (!this.config.sandboxConfig.enabled) {
+    if (!this.config.sandboxConfig?.enabled) {
       await this.applyEvolutionDirectly(task, evaluation);
       return;
     }
@@ -429,7 +428,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       );
 
       // 验证结果
-      if (result.success) {
+      if (result) {
         // 应用到生产环境
         await this.applyEvolutionDirectly(task, evaluation);
         this.emit(EvolutionSystemEvent.EVOLUTION_APPLIED, { task, evaluation });
@@ -485,7 +484,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     }
 
     task.state = EvolutionState.CANCELLED;
-    task.completedAt = new Date();
+    task.completedAt = Date.now();
     
     this.tasks.set(taskId, task);
     this.emit(EvolutionSystemEvent.TASK_COMPLETED, { task });
@@ -517,17 +516,23 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
    * @param options 进化选项
    */
   async evolve(
-    type: EvolutionType,
+    type?: EvolutionType,
     options?: {
       userId?: string;
       tenantId?: string;
       inputData?: any;
       parameters?: Record<string, any>;
     }
-  ): Promise<EvolutionEvaluation> {
+  ): Promise<EvolutionEvaluation | void> {
     this.ensureInitialized();
 
+    if (!type) {
+      // 如果没有指定类型，执行自动评估
+      return this.evaluateEvolutionNeeds();
+    }
+
     // 创建临时任务
+    const now = Date.now();
     const task: EvolutionTask = {
       id: `temp_${uuidv4()}`,
       type,
@@ -535,9 +540,9 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       tenantId: options?.tenantId,
       priority: 0.5,
       confidence: 0.8,
-      createdAt: new Date(),
-      startedAt: new Date(),
-      completedAt: new Date(),
+      createdAt: now,
+      startedAt: now,
+      completedAt: now,
       state: EvolutionState.RUNNING,
       progress: 100,
       goal: `Evolution of type: ${type}`,
@@ -556,9 +561,9 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       await this.applyEvolutionDirectly(task, evaluation);
 
       return evaluation;
-    } catch (error) {
+    } catch (error: unknown) {
       task.state = EvolutionState.FAILED;
-      task.error = error.message;
+      task.error = error instanceof Error ? error.message : String(error);
       throw error;
     }
   }
@@ -606,9 +611,31 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     return {
       score,
       recommendations,
+      improvements: [],
       opportunities,
       risks: []
     };
+  }
+
+  /**
+   * 评估（IEvolutionSystem 接口实现）
+   */
+  async evaluate(): Promise<EvolutionEvaluation> {
+    return this.evaluateEvolutionNeeds();
+  }
+
+  /**
+   * 获取策略列表（IEvolutionSystem 接口实现）
+   */
+  getStrategies(): string[] {
+    return Array.from(this.strategies.keys());
+  }
+
+  /**
+   * 获取系统状态（IEvolutionSystem 接口实现）
+   */
+  getState(): EvolutionState {
+    return this.initialized ? EvolutionState.RUNNING : EvolutionState.Idle;
   }
 
   /**
@@ -634,7 +661,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     try {
       if (options?.dryRun) {
         // 仅模拟应用
-        return { success: true, dryRun: true, changes: task.result?.changes };
+        return { success: true, dryRun: true, changes: (task.result as any)?.changes };
       }
 
       // 实际应用进化
@@ -643,7 +670,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       this.emit(EvolutionSystemEvent.EVOLUTION_APPLIED, { task });
       return { success: true, changes: result };
     } catch (error) {
-      if (options?.rollbackOnFailure && task.result?.rollbackData) {
+      if (options?.rollbackOnFailure && (task.result as any)?.rollbackData) {
         await this.rollbackEvolution(taskId);
       }
       throw error;
@@ -662,7 +689,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       throw new Error(`Evolution task not found: ${taskId}`);
     }
 
-    if (!this.config.rollbackConfig.enabled) {
+    if (!this.config.rollbackConfig?.enabled) {
       throw new Error('Rollback is not enabled in configuration');
     }
 
@@ -685,16 +712,16 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     const tasks: EvolutionTask[] = [];
 
     // 根据触发类型创建进化任务
-    if (evaluation.opportunities.length > 0) {
+    if ((evaluation.opportunities || []).length > 0) {
       // 为最高优先级的进化机会创建任务
-      const topOpportunity = evaluation.opportunities[0];
+      const topOpportunity = evaluation.opportunities![0];
       
       const task: EvolutionTask = {
         id: `triggered_${uuidv4()}`,
-        type: topOpportunity.type,
+        type: topOpportunity.type as EvolutionType,
         priority: topOpportunity.priority,
         confidence: 0.8,
-        createdAt: new Date(),
+        createdAt: Date.now(),
         state: EvolutionState.PENDING,
         progress: 0,
         goal: topOpportunity.description,
@@ -763,7 +790,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     const completedTasks = tasks.filter(t => t.state === EvolutionState.COMPLETED);
     if (completedTasks.length > 0) {
       const totalDuration = completedTasks.reduce((sum, task) => {
-        const duration = new Date(task.completedAt!).getTime() - new Date(task.startedAt!).getTime();
+        const duration = (task.completedAt || 0) - (task.startedAt || 0);
         return sum + duration;
       }, 0);
       stats.averageDuration = totalDuration / completedTasks.length;
@@ -783,7 +810,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
       const evaluation = await this.evaluateEvolutionNeeds();
 
       // 如果有进化机会，触发进化
-      if (evaluation.score > 0.5 && evaluation.opportunities.length > 0) {
+      if (evaluation.score > 0.5 && (evaluation.opportunities || []).length > 0) {
         await this.triggerEvolution(EvolutionTrigger.SCHEDULED, evaluation);
       }
     } catch (error) {
@@ -825,7 +852,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     }
 
     // 停止所有运行中的任务
-    const runningTasks = this.getTasks({ state: EvolutionState.RUNNING });
+    const runningTasks = await this.getTasks({ state: EvolutionState.RUNNING });
     for (const task of runningTasks) {
       await this.stopTask(task.id);
     }
@@ -834,7 +861,7 @@ export class EvolutionSystem extends EventEmitter implements IEvolutionSystem {
     this.tasks.clear();
 
     // 销毁沙箱
-    await this.sandbox.destroy();
+    await this.sandbox.destroy('default');
 
     // 移除所有监听器
     this.removeAllListeners();

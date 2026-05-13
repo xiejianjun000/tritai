@@ -1,4 +1,4 @@
-import { MemoryEntry } from '../interfaces/IMemorySystem';
+import { Memory as MemoryEntry } from '../../core/interfaces/IMemorySystem';
 
 /**
  * 向量化工具函数
