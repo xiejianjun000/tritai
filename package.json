@@ -24,7 +24,7 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.6.2",
+    "@types/node": "^25.8.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
